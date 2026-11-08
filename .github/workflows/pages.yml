@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-audit --no-fund
       - run: npm run generate:glass && npm run generate:rlc && npm run generate:backend
       - run: npm run studio:site
         env:
