@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="212" height="520" viewBox="0 0 212 520">
+    <defs>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#050a1c"/>
+        <stop offset=".5" stop-color="#0a1638"/>
+        <stop offset="1" stop-color="#0d1d4a"/>
+      </linearGradient>
+      <linearGradient id="w1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#13295e"/><stop offset="1" stop-color="#0b1a44"/></linearGradient><linearGradient id="w2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1a3c86"/><stop offset="1" stop-color="#10276a"/></linearGradient><linearGradient id="w3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22509f"/><stop offset="1" stop-color="#173582"/></linearGradient><linearGradient id="w4" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2f68c4"/><stop offset="1" stop-color="#1f479e"/></linearGradient>
+    </defs>
+    <rect width="212" height="520" fill="url(#sky)"/>
+    <path d="M0 340 C60 310 120 380 212 330 V520 H0Z" fill="url(#w1)"/><path d="M0 385 C70 350 140 430 212 380 V520 H0Z" fill="url(#w2)"/><path d="M0 430 C80 405 130 470 212 435 V520 H0Z" fill="url(#w3)"/><path d="M0 475 C60 460 150 505 212 478 V520 H0Z" fill="url(#w4)"/></svg>

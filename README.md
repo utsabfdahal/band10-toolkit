@@ -75,6 +75,7 @@ npm run preview:backend    # utsab.json developer face
 npm run preview:rlc        # RLC Singularity animated circuit
 npm run preview:circuit    # Circuit Link reactor
 npm run preview:odyssey    # Odyssey landscape video loop
+npm run preview:glass      # Glass Lock phone-lock-screen face
 ```
 
 ## Flux Core electronics design
@@ -98,6 +99,25 @@ npm run preview:flux
 
 A gallery of source-first faces built with this toolkit. Every pixel is
 generated deterministically from a script + `layout.json` — no binary editors.
+
+### Glass Lock — phone lock-screen style
+
+A minimal, high-legibility face inspired by phone lock screens: a giant stacked
+clock that fills the band's width, an English date (`Monday, Nov 9`), a large
+**Nepali (Bikram Sambat) date** in Devanagari, battery, weather, steps, and
+heart rate over a layered blue wave wallpaper. Sized for reading at a glance on
+the 1.72" screen. The AOD keeps only the dimmed clock and date.
+
+| Active display | Always-on display |
+|---|---|
+| ![Glass Lock active](examples/glass-lock/screenshots/active.png) | ![Glass Lock AOD](examples/glass-lock/screenshots/aod.png) |
+
+```sh
+npm run generate:glass
+npm run validate:glass
+npm run package:glass
+npm run preview:glass
+```
 
 ### `utsab.json` — developer / JSON debugger
 

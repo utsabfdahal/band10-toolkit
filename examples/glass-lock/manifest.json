@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/manifest.schema.json",
+  "formatVersion": 1,
+  "id": "261108001",
+  "name": "Glass Lock",
+  "author": "Band 10 Toolkit",
+  "version": "1.0.0",
+  "description": "Minimal phone-lock-screen style face: big time, date, glass widgets for battery, steps, heart rate and weather.",
+  "license": "MIT",
+  "device": "xiaomi-smart-band-10",
+  "preview": "generated",
+  "output": "glass-lock",
+  "compiler": {
+    "target": "native",
+    "imageCompression": true
+  }
+}
