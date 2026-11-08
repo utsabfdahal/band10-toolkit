@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   DataSourceKey,
   SimulationState,
@@ -157,13 +157,68 @@ function App() {
     setSourceText(JSON.stringify(nextLayout, null, 2))
   }, [])
 
+  const layoutRef = useRef(layout)
+  useEffect(() => { layoutRef.current = layout }, [layout])
+  const undoStack = useRef<WatchFaceLayout[]>([])
+  const redoStack = useRef<WatchFaceLayout[]>([])
+  const lastEditAt = useRef(0)
+  const [history, setHistory] = useState({ undo: 0, redo: 0 })
+  const syncHistory = useCallback(() => setHistory({ undo: undoStack.current.length, redo: redoStack.current.length }), [])
+
+  // Edits within this window (e.g. one drag) collapse into a single undo step.
+  const COALESCE_MS = 500
+  const commitLayout = useCallback((nextLayout: WatchFaceLayout) => {
+    const previous = layoutRef.current
+    const now = Date.now()
+    if (previous && (now - lastEditAt.current > COALESCE_MS || undoStack.current.length === 0)) {
+      undoStack.current.push(previous)
+      if (undoStack.current.length > 200) undoStack.current.shift()
+    }
+    lastEditAt.current = now
+    redoStack.current = []
+    layoutRef.current = nextLayout
+    syncHistory()
+    updateLayout(nextLayout)
+  }, [syncHistory, updateLayout])
+
+  const stepHistory = useCallback((direction: 'undo' | 'redo') => {
+    const current = layoutRef.current
+    const [from, to] = direction === 'undo' ? [undoStack.current, redoStack.current] : [redoStack.current, undoStack.current]
+    const target = from.pop()
+    if (!target || !current) return
+    to.push(current)
+    layoutRef.current = target
+    lastEditAt.current = 0
+    syncHistory()
+    updateLayout(target)
+  }, [syncHistory, updateLayout])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return
+      const modifier = event.metaKey || event.ctrlKey
+      if (!modifier) return
+      const key = event.key.toLowerCase()
+      if (key === 'z') {
+        event.preventDefault()
+        stepHistory(event.shiftKey ? 'redo' : 'undo')
+      } else if (key === 'y' && event.ctrlKey) {
+        event.preventDefault()
+        stepHistory('redo')
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [stepHistory])
+
   const setWidgets = useCallback((nextWidgets: WatchFaceWidget[]) => {
     if (!layout) return
     const next = cloneLayout(layout)
     if (activeMode === 'aod' && next.aod?.enabled) next.aod.widgets = nextWidgets
     else next.normal.widgets = nextWidgets
-    updateLayout(next)
-  }, [activeMode, layout, updateLayout])
+    commitLayout(next)
+  }, [activeMode, layout, commitLayout])
 
   const updateWidget = useCallback((id: string, patch: Partial<WatchFaceWidget>) => {
     setWidgets(widgets.map((widget) => widget.id === id ? ({ ...widget, ...patch } as WatchFaceWidget) : widget))
@@ -197,7 +252,7 @@ function App() {
       if (next.canvas?.width !== 212 || next.canvas?.height !== 520 || !next.normal?.widgets) {
         throw new Error('Expected a 212×520 layout with normal.widgets')
       }
-      updateLayout(next)
+      commitLayout(next)
       setSourceError(undefined)
     } catch (error) {
       setSourceError(error instanceof Error ? error.message : String(error))
@@ -207,7 +262,7 @@ function App() {
   const reset = () => {
     if (!baseline) return
     const next = cloneLayout(baseline)
-    updateLayout(next)
+    commitLayout(next)
     setSelectedId(undefined)
     setSourceError(undefined)
   }
@@ -239,7 +294,7 @@ function App() {
       { id: `wallpaper-${Date.now().toString(36)}`, label: 'Photo wallpaper', type: 'image', asset, x: 0, y: 0, z: minimumZ - 1, allowOverlap: true },
       ...next.normal.widgets.filter((widget) => !widget.id.startsWith('wallpaper')),
     ]
-    updateLayout(next)
+    commitLayout(next)
     setMode('normal')
   })
 
@@ -255,7 +310,7 @@ function App() {
       { id: `${name}-hours`, label: 'Hours', type: 'number', source: 'hour', digitSet: name, digits: 2, align: 'center', leadingZero: true, x: 106, y: top, z: maximumZ + 1, allowOverlap: true },
       { id: `${name}-minutes`, label: 'Minutes', type: 'number', source: 'minute', digitSet: name, digits: 2, align: 'center', leadingZero: true, x: 106, y: top + height + 8, z: maximumZ + 1, allowOverlap: true },
     )
-    updateLayout(next)
+    commitLayout(next)
     setMode('normal')
   })
 
@@ -334,6 +389,9 @@ function App() {
       <main className="canvas-workspace">
         <div className="canvas-tools">
           <div className="tool-group">
+            <button onClick={() => stepHistory('undo')} disabled={history.undo === 0} title="Undo (⌘Z / Ctrl+Z)" aria-label="Undo">↶</button>
+            <button onClick={() => stepHistory('redo')} disabled={history.redo === 0} title="Redo (⇧⌘Z / Ctrl+Y)" aria-label="Redo">↷</button>
+            <span className="tool-divider" />
             <button className={snap ? 'selected' : ''} onClick={() => setSnap((value) => !value)}>Snap 2 px</button>
             <span className="tool-divider" />
             <button onClick={() => setZoom((value) => Math.max(0.65, value - 0.1))}>−</button>
