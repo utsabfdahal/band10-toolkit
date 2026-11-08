@@ -46,6 +46,7 @@
     "package:backend": "npm run generate:backend && tsx cli/index.ts package examples/backend-json",
     "package:odyssey": "npm run generate:odyssey && tsx cli/index.ts package examples/odyssey",
     "package:glass": "npm run generate:glass && tsx cli/index.ts package examples/glass-lock",
+    "release:faces": "npm run package && npm run package:flux && npm run package:circuit && npm run package:rlc && npm run package:backend && npm run package:glass && tsx scripts/collect-release.ts",
     "preview": "tsx cli/index.ts preview examples/minimal-amoled",
     "preview:flux": "tsx cli/index.ts preview examples/flux-core",
     "preview:circuit": "tsx cli/index.ts preview examples/circuit-link",
@@ -77,6 +78,7 @@
   },
   "dependencies": {
     "commander": "^14.0.2",
+    "harfbuzzjs": "^1.6.4",
     "nepali-date-converter": "^3.4.0",
     "sharp": "^0.34.5",
     "zod": "^4.3.6"

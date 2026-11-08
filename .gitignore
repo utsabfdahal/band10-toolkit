@@ -3,6 +3,7 @@ preview/dist/
 preview/public/project/
 examples/*/build/
 examples/*/dist/
+release/
 *.log
 .DS_Store
 .env

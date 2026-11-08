@@ -15,6 +15,9 @@ import { Simulator } from './components/Simulator.tsx'
 import { WidgetPalette } from './components/WidgetPalette.tsx'
 import './App.css'
 
+// 212×520 px over a 1.72" diagonal is ~326 ppi; CSS assumes 96 px per inch.
+const ACTUAL_SIZE_ZOOM = 96 / (Math.hypot(212, 520) / 1.72)
+
 type PreviewMode = 'normal' | 'aod'
 type RightPanel = 'inspect' | 'simulate' | 'source'
 
@@ -251,8 +254,15 @@ function App() {
             <button className={snap ? 'selected' : ''} onClick={() => setSnap((value) => !value)}>Snap 2 px</button>
             <span className="tool-divider" />
             <button onClick={() => setZoom((value) => Math.max(0.65, value - 0.1))}>−</button>
-            <span className="zoom-readout">{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoom((value) => Math.min(1.5, value + 0.1))}>+</button>
+            <span className="zoom-readout">{zoom === ACTUAL_SIZE_ZOOM ? '1:1' : `${Math.round(zoom * 100)}%`}</span>
+            <button onClick={() => setZoom((value) => Math.min(1.5, Math.max(0.65, value + 0.1)))}>+</button>
+            <button
+              className={zoom === ACTUAL_SIZE_ZOOM ? 'selected' : ''}
+              title="Approximate physical size of the 1.72-inch Band 10 screen"
+              onClick={() => setZoom((value) => (value === ACTUAL_SIZE_ZOOM ? 1 : ACTUAL_SIZE_ZOOM))}
+            >
+              Actual size
+            </button>
           </div>
           <div className="resolution-badge"><span className="status-led" /> Pixel-accurate SVG</div>
         </div>

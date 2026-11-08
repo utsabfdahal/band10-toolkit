@@ -1,0 +1,47 @@
+name: Release faces
+
+on:
+  push:
+    tags: ['v*']
+  schedule:
+    # Rebuild on the 1st of every month so Nepali (Bikram Sambat) date lookups stay current.
+    - cron: '0 1 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-faces
+  cancel-in-progress: false
+
+jobs:
+  release:
+    # Some legacy generators still rasterize with macOS system fonts.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+      - run: npm run release:faces
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            TAG="${GITHUB_REF_NAME}"
+            TITLE="Band 10 faces ${TAG}"
+          else
+            TAG="faces-$(date -u +%Y-%m)"
+            TITLE="Band 10 faces for $(date -u +'%B %Y')"
+          fi
+          ASSETS=(release/*.face release/*.png release/SHA256SUMS)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${ASSETS[@]}" --clobber
+          else
+            gh release create "$TAG" "${ASSETS[@]}" --title "$TITLE" --notes-file release/NOTES.md --target "$GITHUB_SHA"
+          fi

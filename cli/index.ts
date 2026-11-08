@@ -4,7 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawn } from 'node:child_process'
 import { Command, Option } from 'commander'
-import { buildProject, packageProject, syncPreviewProject, validateProject } from '../builder/index.ts'
+import { buildProject, packageProject, prepareWallpaper, syncPreviewProject, unpackWatchFace, validateProject } from '../builder/index.ts'
 import { inspectWatchFace } from '../parser/index.ts'
 import type { CompilerTarget, ValidationIssue } from '../core/index.ts'
 
@@ -118,6 +118,30 @@ program.command('inspect')
       }
     }
     for (const warning of inspection.warnings) console.log(`▲ ${warning}`)
+  })
+
+program.command('unpack')
+  .description('Decompile a .face/.bin into an editable project (layout.json, manifest.json, PNG assets)')
+  .argument('<file>', 'watch-face binary')
+  .argument('<directory>', 'output project directory')
+  .action(async (file: string, directory: string) => {
+    const result = await unpackWatchFace(path.resolve(file), directory)
+    console.log(`✓ Unpacked ${result.widgets} widgets and ${result.images} images to ${result.directory}`)
+    for (const warning of result.warnings) console.log(`▲ ${warning}`)
+    console.log(`Next: band10 validate ${directory} && band10 preview ${directory}`)
+  })
+
+program.command('wallpaper')
+  .description('Turn a photo into a 212×520 indexed-PNG wallpaper sized for Band 10')
+  .argument('<image>', 'source photo (JPEG, PNG, HEIF, WebP…)')
+  .argument('[output]', 'output PNG path', 'wallpaper.png')
+  .option('--dim <amount>', 'darken 0–1 so white text stays readable', '0.35')
+  .option('--colors <count>', 'palette size 2–256', '128')
+  .option('--position <gravity>', 'crop focus: attention, entropy, centre, north, south…', 'attention')
+  .action(async (image: string, output: string, options: { dim: string; colors: string; position: string }) => {
+    const result = await prepareWallpaper(path.resolve(image), output, { dim: Number(options.dim), colors: Number(options.colors), position: options.position })
+    console.log(`✓ Wallpaper ${result.width}×${result.height} · ${(result.bytes / 1024).toFixed(1)} KiB → ${result.outputPath}`)
+    console.log('Add it as the first image widget (x 0, y 0, z 0, allowOverlap true) in layout.json.')
   })
 
 program.command('clean')

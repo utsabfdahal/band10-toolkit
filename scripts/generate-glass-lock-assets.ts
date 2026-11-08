@@ -2,6 +2,7 @@ import { createRequire } from 'node:module'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { measureText, textPath } from '../builder/text.ts'
 
 const require = createRequire(import.meta.url)
 const NepaliDate = (require('nepali-date-converter') as {
@@ -11,8 +12,6 @@ const NepaliDate = (require('nepali-date-converter') as {
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const assetRoot = path.join(repositoryRoot, 'examples', 'glass-lock', 'assets')
 
-const FONT = 'Helvetica Neue'
-const DEVANAGARI = 'Kohinoor Devanagari'
 const WHITE = '#ffffff'
 const SOFT = '#dce4f5'
 
@@ -26,18 +25,20 @@ async function write(relative: string, width: number, height: number, body: stri
   await writeFile(output, document(width, height, body))
 }
 
-function text(value: string, x: number, y: number, size: number, weight: number, color: string, anchor = 'middle', family = FONT): string {
-  return `<text x="${x}" y="${y}" font-family="${family}" font-size="${size}" font-weight="${weight}" fill="${color}" text-anchor="${anchor}">${value}</text>`
+function text(value: string, x: number, y: number, size: number, weight: number, color: string, anchor: 'start' | 'middle' | 'end' = 'middle'): string {
+  return textPath(value, x, y, { size, weight, fill: color, anchor, tabularNumbers: true })
 }
 
 async function generateDigitSet(directory: string, width: number, height: number, baseline: number, size: number, weight: number, color: string): Promise<void> {
   const glyphs: Record<string, string> = Object.fromEntries([...'0123456789'].map((digit) => [digit, digit]))
   glyphs.minus = '−'
+  const widest = Math.max(...Object.values(glyphs).map((glyph) => measureText(glyph, { size, weight, fill: color, tabularNumbers: true })))
+  const fitted = widest > width ? (size * width) / widest : size
   await Promise.all(Object.entries(glyphs).map(([name, glyph]) => write(
     `${directory}/${name}.svg`,
     width,
     height,
-    text(glyph, width / 2, baseline, size, weight, color),
+    text(glyph, width / 2, baseline, fitted, weight, color),
   )))
 }
 
@@ -106,7 +107,7 @@ async function generateNepaliDates(): Promise<void> {
   await rm(path.join(assetRoot, 'nepali'), { recursive: true, force: true })
   await Promise.all(Array.from({ length: 31 }, (_, index) => {
     const adDate = new Date(Date.UTC(year, month, index + 1, 12))
-    const body = text(new NepaliDate(adDate).format('D MMMM', 'np'), 106, 46, 44, 700, WHITE, 'middle', DEVANAGARI)
+    const body = text(new NepaliDate(adDate).format('D MMMM', 'np'), 106, 46, 44, 700, WHITE, 'middle')
     return write(`nepali/day-${String(index + 1).padStart(2, '0')}.svg`, 212, 60, body)
   }))
   console.log(`Nepali date lookup generated for ${year}-${String(month + 1).padStart(2, '0')}`)

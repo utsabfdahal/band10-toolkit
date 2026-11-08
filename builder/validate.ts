@@ -52,6 +52,70 @@ function issue(severity: ValidationIssue['severity'], code: string, message: str
   return { severity, code, message, path: issuePath, hint }
 }
 
+// Below this ink height digits are hard to read on the 1.47" wide, ~0.17 mm/px Band 10 panel.
+export const MIN_LEGIBLE_GLYPH_HEIGHT = 12
+export const MIN_LEGIBLE_CONTRAST = 3
+
+interface InkProfile {
+  height: number
+  ink: [number, number, number]
+  background?: [number, number, number]
+}
+
+async function inkProfile(filePath: string): Promise<InkProfile | undefined> {
+  const { data, info } = await sharp(filePath, { density: 72 }).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+  const pixel = (index: number): [number, number, number, number] => [data[index * 4] ?? 0, data[index * 4 + 1] ?? 0, data[index * 4 + 2] ?? 0, data[index * 4 + 3] ?? 0]
+  const corner = pixel(0)
+  const opaqueBackground = corner[3] > 250
+  let top = Infinity
+  let bottom = -Infinity
+  let red = 0
+  let green = 0
+  let blue = 0
+  let count = 0
+  for (let y = 0; y < info.height; y += 1) {
+    for (let x = 0; x < info.width; x += 1) {
+      const [r, g, b, a] = pixel(y * info.width + x)
+      const isInk = opaqueBackground
+        ? Math.abs(r - corner[0]) + Math.abs(g - corner[1]) + Math.abs(b - corner[2]) > 96
+        : a > 128
+      if (!isInk) continue
+      top = Math.min(top, y)
+      bottom = Math.max(bottom, y)
+      red += r
+      green += g
+      blue += b
+      count += 1
+    }
+  }
+  if (!count) return undefined
+  return {
+    height: bottom - top + 1,
+    ink: [red / count, green / count, blue / count],
+    background: opaqueBackground ? [corner[0], corner[1], corner[2]] : undefined,
+  }
+}
+
+function hexToRgb(value: string): [number, number, number] | undefined {
+  const match = /^#?([0-9a-f]{6})$/i.exec(value.trim())
+  if (!match?.[1]) return undefined
+  const number = Number.parseInt(match[1], 16)
+  return [(number >> 16) & 255, (number >> 8) & 255, number & 255]
+}
+
+function relativeLuminance([r, g, b]: [number, number, number]): number {
+  const channel = (value: number) => {
+    const normalized = value / 255
+    return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4
+  }
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+}
+
+export function contrastRatio(foreground: [number, number, number], background: [number, number, number]): number {
+  const [light, dark] = [relativeLuminance(foreground), relativeLuminance(background)].sort((left, right) => right - left)
+  return (light! + 0.05) / (dark! + 0.05)
+}
+
 function boundsForWidget(
   widget: WatchFaceWidget,
   project: LoadedProject,
@@ -112,9 +176,18 @@ export async function validateLoadedProject(project: LoadedProject): Promise<Val
   }
 
   const themes = [
-    { name: 'normal' as const, widgets: project.layout.normal.widgets },
-    ...(project.layout.aod?.enabled ? [{ name: 'aod' as const, widgets: project.layout.aod.widgets }] : []),
+    { name: 'normal' as const, widgets: project.layout.normal.widgets, background: project.layout.normal.background },
+    ...(project.layout.aod?.enabled ? [{ name: 'aod' as const, widgets: project.layout.aod.widgets, background: project.layout.aod.background }] : []),
   ]
+  const inkProfiles = new Map<string, Promise<InkProfile | undefined>>()
+  const inkFor = (reference: string) => {
+    let cached = inkProfiles.get(reference)
+    if (!cached) {
+      cached = inkProfile(resolveProjectAsset(project, reference)).catch(() => undefined)
+      inkProfiles.set(reference, cached)
+    }
+    return cached
+  }
 
   for (const theme of themes) {
     const ids = new Set<string>()
@@ -134,6 +207,21 @@ export async function validateLoadedProject(project: LoadedProject): Promise<Val
             .filter((value): value is ImageMetadata => Boolean(value))
             .map((value) => `${value.width}x${value.height}`)
           if (new Set(sizes).size > 1) issues.push(issue('error', 'DIGIT_SIZE_MISMATCH', `Digit set "${widget.digitSet}" contains inconsistent dimensions`, `${widgetPath}/digitSet`))
+          const sample = set.digits[0] && metadata.has(set.digits[0]) ? await inkFor(set.digits[0]) : undefined
+          if (sample && widget.visible !== false) {
+            if (sample.height < MIN_LEGIBLE_GLYPH_HEIGHT) {
+              issues.push(issue('warning', 'LEGIBILITY_SMALL_TEXT', `Digits of "${widget.id}" are only ${sample.height} px tall`, widgetPath, `Use digit glyphs at least ${MIN_LEGIBLE_GLYPH_HEIGHT} px tall; smaller numbers are hard to read on the band.`))
+            }
+            const background = sample.background ?? hexToRgb(theme.background)
+            if (background) {
+              const opacity = widget.opacity ?? 1
+              const ink = sample.ink.map((value, channel) => value * opacity + background[channel]! * (1 - opacity)) as [number, number, number]
+              const ratio = contrastRatio(ink, background)
+              if (ratio < MIN_LEGIBLE_CONTRAST) {
+                issues.push(issue('warning', 'LEGIBILITY_LOW_CONTRAST', `Digits of "${widget.id}" have ${ratio.toFixed(1)}:1 contrast against the background`, widgetPath, `Aim for at least ${MIN_LEGIBLE_CONTRAST}:1 so numbers stay readable outdoors.`))
+              }
+            }
+          }
         }
       }
 
