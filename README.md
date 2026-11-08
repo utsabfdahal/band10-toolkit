@@ -64,6 +64,9 @@ The generated `.face` package can be pushed to a physical watch with the
 import the `.face` file → sync to the band. This is how the faces in this repo
 were verified on-device, including their always-on displays.
 
+See [Installing a `.face` with Notify for Xiaomi](docs/installation.md#notify-for-xiaomi-route)
+for the full step-by-step guide, including bands paired to an iPhone.
+
 ### Preview any of the other faces
 
 Each design has its own `preview` script that generates its assets and opens

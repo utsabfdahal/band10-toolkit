@@ -40,3 +40,7 @@ npm run preview:glass
 Text is rasterized at build time from macOS system fonts (Helvetica Neue, Kohinoor Devanagari); other systems fall back to their default fonts.
 
 Earlier revisions were installed on a physical Band 10 via the Notify app; verify each rebuild on your own band.
+
+## Install
+
+Copy `dist/glass-lock.face` to an Android phone and install it with Notify for Xiaomi. Step-by-step guide (including iPhone-paired bands): [docs/installation.md](../../docs/installation.md#notify-for-xiaomi-route).

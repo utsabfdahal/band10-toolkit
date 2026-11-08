@@ -72,7 +72,49 @@ Sources: [Band 10 support](https://gadgetbridge.org/gadgets/wearables/xiaomi/#de
 
 ### Notify for Xiaomi route
 
-Community Band 10 testing reports that Notify can install local `.face` files. Mi Fitness and Notify compete for the same connection; the reported workflow temporarily removes Nearby Devices permission from Mi Fitness, grants it to Notify, installs, then restores permissions.
+Notify for Xiaomi (Android, `com.mc.xiaomi1`) can install local `.face` files. It reuses the band's existing Mi Fitness pairing instead of pairing from scratch. Mi Fitness and Notify compete for the same Bluetooth connection, so only one may hold it at a time.
+
+#### 1. Build the face
+
+```sh
+npm run package:glass   # or any other package:* script
+```
+
+The file is written to `examples/<face>/dist/<name>.face`. Copy it to the Android phone (Google Drive, Telegram, email, or `npm run band10 -- install <file>` over ADB).
+
+#### 2. One-time Notify setup
+
+1. Pair and update the band in **Mi Fitness** first.
+2. Install **Notify for Xiaomi** from the Play Store.
+3. In the setup wizard choose **Xiaomi Smart Band 10** and the option that keeps **Mi Fitness** as the main app. Do **not** choose “pair without Mi Fitness”: it resets the band and unbinds it from your Xiaomi account.
+4. Obtain the auth key automatically by signing in with the **same Xiaomi account** used by Mi Fitness.
+5. Allow Bluetooth/Nearby devices, location, and notification permissions.
+
+#### 3. Install the face (every time)
+
+1. Open Mi Fitness once so the band is synced.
+2. Android Settings → Apps → **Mi Fitness** → Permissions → **Nearby devices → Don't allow**.
+3. Android Settings → Apps → **Notify** → Permissions → **Nearby devices → Allow**; set Notify battery usage to **Unrestricted**.
+4. Open Notify, dismiss popups, and wait until the band shows as connected.
+5. **Watchface** → custom/local file → pick the `.face`. Start from inside Notify, not from the file manager. Keep the phone next to the band until it reaches 100%.
+6. Reverse steps 3 and 2 so Mi Fitness owns the band again.
+
+#### Band paired to an iPhone
+
+Notify is Android-only, and Mi Fitness on iOS cannot install custom faces. Borrow an Android phone and keep the iPhone pairing:
+
+1. Sync in Mi Fitness on the iPhone, then **power the iPhone off** (Control Center Bluetooth toggle is not enough; iOS may reconnect).
+2. On Android, set up Notify as above with the same Xiaomi account and the automatic auth key.
+3. As soon as Notify shows **Paired**, install the face. Dashboard values may show 0% — that only means data sync failed; watch-face install usually still works.
+4. Close Notify and power the iPhone back on; the band reconnects to Mi Fitness with the new face.
+
+If Notify only offers to reset/pair as a new device, stop: moving back to the iPhone would require another reset, which erases custom faces.
+
+#### Troubleshooting
+
+- **0% everywhere / connects then drops:** another phone (usually the iPhone) is reclaiming the band, or the auth key is wrong. Power the other phone off, restart Android Bluetooth, re-fetch the key.
+- **Install fails:** delete the previous version of the same face from the band; keep at most 10 faces installed; ensure Mi Fitness has no Nearby devices permission.
+- **Nepali date faces:** BS lookups cover one AD month; rebuild and reinstall at the start of each month.
 
 Source: [Band 10 creation/install article](https://mateusznowak.dev/articles/designing-watchfaces-xiaomi-band-10).
 
