@@ -17,6 +17,16 @@ Design assets, describe widgets in JSON, validate, live-preview in React/SVG, ge
 |---|---|
 | ![Carbon Signal active](docs/screenshots/active-watchface.png) | ![Carbon Signal AOD](docs/screenshots/aod-watchface.png) |
 
+## No code? Start here
+
+| I want to… | Do this |
+|---|---|
+| **Install a ready-made face** | Download a `.face` from the [latest release](https://github.com/utsabfdahal/band10-toolkit/releases/latest) and follow the [Notify install guide](docs/installation.md#notify-for-xiaomi-route). Releases are rebuilt automatically on the 1st of every month so Nepali (Bikram Sambat) dates stay current. |
+| **Design my own in the browser** | Open **[Band 10 Studio](https://utsabfdahal.github.io/band10-toolkit/)**, pick a template, add a photo wallpaper or a clock from any font in the **Create** tab, then click **Download .face**. Nothing is uploaded; everything runs locally in your browser. |
+| **Edit a face I already have** | `npm run band10 -- unpack my.face my-face/` turns any Band 10 `.face`/`.bin` into an editable `layout.json` + PNGs. |
+
+New here? Follow [Your first face in 5 minutes](docs/first-face.md). If a face misbehaves on the band, see [Recovery](docs/recovery.md).
+
 ## Getting started (build & open the simulator)
 
 Everything runs locally. You only need **Node.js 22+** and **git**.
@@ -198,8 +208,12 @@ npm run preview:circuit
 - complete minimal AMOLED example with time, date, battery, steps, heart rate, weather, progress, and AOD;
 - clean Flux Core electronics/inductor face with collision-tested active and AOD layouts;
 - safe ADB staging and optional Gadgetbridge confirmation-UI launch;
+- browser studio with templates, photo wallpapers, font-to-digit clocks, and in-browser `.face` export;
+- `.face` decompiler (`unpack`) and photo wallpaper tool (`wallpaper`);
+- legibility (size/contrast) validation and portable HarfBuzz text outlines;
+- automated monthly releases of prebuilt faces;
 - research report, format notes, project catalog, architecture diagrams, and install/publish guidance;
-- 30 automated unit/integration tests.
+- 40+ automated unit/integration tests.
 
 ## Quick start
 
@@ -249,6 +263,8 @@ The schema uses meaningful source names such as `battery`, `steps`, and `heartRa
 | `band10 build <project>` | render preview and write FPRJ + GMF intermediates |
 | `band10 package <project>` | package `.face` + `.bin` with selected backend |
 | `band10 inspect <file>` | print headers, sections, resources, coordinates, and bindings |
+| `band10 unpack <file> <dir>` | decompile any Band 10 `.face`/`.bin` into an editable project |
+| `band10 wallpaper <photo> [out]` | crop a photo to 212×520, darken it for legibility, and palette-quantize it |
 | `band10 preview <project>` | synchronize project and run React studio |
 | `band10 clean <project>` | remove `build/` and `dist/` |
 | `band10 install <file>` | ADB-stage to Android; optional Gadgetbridge confirmation launch |
@@ -260,6 +276,12 @@ npm run band10 -- validate path/to/project
 ```
 
 Machine-readable output is available from `validate --json` and `inspect --json`.
+
+`validate` also checks **legibility**: digits shorter than 12 px (`LEGIBILITY_SMALL_TEXT`) or below 3:1 contrast against the background (`LEGIBILITY_LOW_CONTRAST`) are flagged, because the Band 10 screen is only 1.72". The studio's **Actual size** button previews the face at roughly its physical size.
+
+Generators can render text with `builder/text.ts`, which shapes text with HarfBuzz and the bundled OFL fonts in [`assets/fonts`](assets/fonts) (Inter, Noto Sans Devanagari) into SVG outlines, so builds look identical on macOS, Linux, and Windows.
+
+`npm run release:faces` packages every redistributable example into `release/` with checksums; the [release workflow](.github/workflows/release.yml) publishes it on tags and monthly.
 
 ## Package backends
 

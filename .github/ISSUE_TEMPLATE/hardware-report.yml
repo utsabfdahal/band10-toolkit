@@ -1,0 +1,60 @@
+name: Hardware test report
+description: Tell us how a face built with this toolkit behaved on a real band.
+title: "[hardware] <face name> on <band model>"
+labels: [hardware-report]
+body:
+  - type: markdown
+    attributes:
+      value: Real-device reports are how widgets move from "experimental" to "verified" in docs/compatibility.md. Thank you!
+  - type: input
+    id: face
+    attributes:
+      label: Face
+      description: Example name, release asset, or a link to your project.
+      placeholder: glass-lock.face from faces-2026-11
+    validations:
+      required: true
+  - type: dropdown
+    id: device
+    attributes:
+      label: Band model
+      options:
+        - Xiaomi Smart Band 10
+        - Xiaomi Smart Band 10 NFC
+        - Other (write below)
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: Band firmware version
+      placeholder: Settings → About on the band
+  - type: dropdown
+    id: installer
+    attributes:
+      label: Installed with
+      options:
+        - Notify for Xiaomi
+        - Gadgetbridge
+        - Browser studio download + Notify
+        - Other
+    validations:
+      required: true
+  - type: checkboxes
+    id: widgets
+    attributes:
+      label: What rendered correctly?
+      options:
+        - label: Time digits
+        - label: Date / weekday / month
+        - label: Image lists (weather, battery icons, Nepali date)
+        - label: Progress widgets (bars / rings)
+        - label: Animations
+        - label: Always-on display
+  - type: textarea
+    id: details
+    attributes:
+      label: What happened?
+      description: Anything wrong, crashes, or recovery steps you needed. Photos of the band help a lot.
+    validations:
+      required: true

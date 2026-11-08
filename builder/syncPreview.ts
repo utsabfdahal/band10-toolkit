@@ -1,7 +1,7 @@
 import { copyFile, mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { DEFAULT_SIMULATION } from '../core/index.ts'
+import { DEFAULT_SIMULATION, type SimulationState } from '../core/index.ts'
 import { copyStagedAssets } from './assets.ts'
 import { buildProject } from './build.ts'
 
@@ -16,9 +16,18 @@ function rewriteAssetReferences(value: unknown, replacements: Map<string, string
   return value
 }
 
-export async function syncPreviewProject(directory: string): Promise<string> {
+export interface SyncPreviewOptions {
+  /** Directory under preview/public that receives the project. */
+  outputDirectory?: string
+  /** Page-relative URL prefix of that directory, e.g. `project/` or `templates/glass-lock/`. */
+  urlPrefix?: string
+  simulation?: SimulationState
+}
+
+export async function syncPreviewProject(directory: string, options: SyncPreviewOptions = {}): Promise<string> {
   const build = await buildProject(directory)
-  const outputDirectory = path.join(repositoryRoot, 'preview', 'public', 'project')
+  const outputDirectory = options.outputDirectory ?? path.join(repositoryRoot, 'preview', 'public', 'project')
+  const urlPrefix = options.urlPrefix ?? 'project/'
   const assetDirectory = path.join(outputDirectory, 'assets')
   await rm(outputDirectory, { recursive: true, force: true })
   await mkdir(assetDirectory, { recursive: true })
@@ -30,14 +39,14 @@ export async function syncPreviewProject(directory: string): Promise<string> {
   ])
   const replacements = new Map<string, string>()
   for (const asset of [...build.normalAssets.values(), ...build.aodAssets.values()]) {
-    replacements.set(asset.reference, `/project/assets/${asset.fileName}`)
+    replacements.set(asset.reference, `${urlPrefix}assets/${asset.fileName}`)
   }
   const layout = rewriteAssetReferences(build.project.layout, replacements)
-  const manifest = { ...build.project.manifest, preview: '/project/preview.png' }
+  const manifest = { ...build.project.manifest, preview: `${urlPrefix}preview.png` }
   await Promise.all([
     writeFile(path.join(outputDirectory, 'layout.json'), `${JSON.stringify(layout, null, 2)}\n`),
     writeFile(path.join(outputDirectory, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`),
-    writeFile(path.join(outputDirectory, 'simulation.json'), `${JSON.stringify(DEFAULT_SIMULATION, null, 2)}\n`),
+    writeFile(path.join(outputDirectory, 'simulation.json'), `${JSON.stringify(options.simulation ?? DEFAULT_SIMULATION, null, 2)}\n`),
     writeFile(path.join(outputDirectory, 'source.json'), `${JSON.stringify({ directory: build.project.directory }, null, 2)}\n`),
   ])
   return outputDirectory

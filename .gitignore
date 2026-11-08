@@ -1,6 +1,7 @@
 node_modules/
 preview/dist/
 preview/public/project/
+preview/public/templates/
 examples/*/build/
 examples/*/dist/
 release/

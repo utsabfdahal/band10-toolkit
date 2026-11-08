@@ -64,6 +64,8 @@
     "screenshots:odyssey": "npm run generate:odyssey && tsx scripts/render-odyssey-screenshots.ts",
     "screenshots:glass": "npm run generate:glass && tsx scripts/render-glass-lock-screenshots.ts",
     "sync:preview": "tsx scripts/sync-preview.ts",
+    "studio:templates": "tsx scripts/build-studio-site.ts",
+    "studio:site": "npm run studio:templates && npm --prefix preview run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json && npm --prefix preview run typecheck",

@@ -58,6 +58,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .toolbar-button, .primary-button, .icon-button, .text-button { border-radius: 7px; border: 1px solid var(--line-bright); background: var(--surface); padding: 8px 11px; font-size: 11px; font-weight: 650; cursor: pointer; transition: .16s ease; }
 .toolbar-button:hover, .icon-button:hover { border-color: #465867; background: var(--surface-2); }
 .toolbar-button:disabled { opacity: .35; cursor: not-allowed; }
+.template-select { max-width: 180px; border-radius: 7px; border: 1px solid var(--line-bright); background: var(--surface); color: inherit; padding: 7px 9px; font-size: 11px; font-weight: 650; cursor: pointer; }
 .icon-button { width: 32px; padding-inline: 0; font-family: var(--mono); color: var(--muted); }
 .icon-button[aria-pressed="true"] { color: var(--lime); border-color: rgba(185,255,61,.35); background: var(--lime-muted); }
 .primary-button { color: #101609; border-color: var(--lime); background: var(--lime); }

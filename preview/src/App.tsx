@@ -13,13 +13,20 @@ import { WatchCanvas } from './components/WatchCanvas.tsx'
 import { Inspector } from './components/Inspector.tsx'
 import { Simulator } from './components/Simulator.tsx'
 import { WidgetPalette } from './components/WidgetPalette.tsx'
+import { CreatePanel } from './components/CreatePanel.tsx'
+import { exportFace, makeDigitSet, makeWallpaper } from './browserTools.ts'
 import './App.css'
 
 // 212×520 px over a 1.72" diagonal is ~326 ppi; CSS assumes 96 px per inch.
 const ACTUAL_SIZE_ZOOM = 96 / (Math.hypot(212, 520) / 1.72)
 
 type PreviewMode = 'normal' | 'aod'
-type RightPanel = 'inspect' | 'simulate' | 'source'
+type RightPanel = 'inspect' | 'simulate' | 'create' | 'source'
+
+interface TemplateEntry {
+  id: string
+  name: string
+}
 
 interface ProjectPayload {
   manifest: WatchFaceManifest
@@ -28,12 +35,20 @@ interface ProjectPayload {
   fprj: string
 }
 
+const selectedTemplate = new URLSearchParams(window.location.search).get('template')
+const projectBase = selectedTemplate && /^[a-z0-9-]+$/.test(selectedTemplate) ? `templates/${selectedTemplate}/` : 'project/'
+
+async function loadTemplates(): Promise<TemplateEntry[]> {
+  const response = await fetch('templates/index.json')
+  return response.ok ? (await response.json()) as TemplateEntry[] : []
+}
+
 async function loadProject(): Promise<ProjectPayload> {
   const responses = await Promise.all([
-    fetch('/project/manifest.json'),
-    fetch('/project/layout.json'),
-    fetch('/project/simulation.json'),
-    fetch('/project/project.fprj'),
+    fetch(`${projectBase}manifest.json`),
+    fetch(`${projectBase}layout.json`),
+    fetch(`${projectBase}simulation.json`),
+    fetch(`${projectBase}project.fprj`),
   ])
   for (const response of responses) {
     if (!response.ok) throw new Error(`Preview project is not synchronized (${response.status} ${response.statusText})`)
@@ -55,7 +70,7 @@ function cloneLayout(layout: WatchFaceLayout): WatchFaceLayout {
 function makeWidget(type: WidgetType, x: number, y: number, z: number, layout: WatchFaceLayout): WatchFaceWidget {
   const firstDigitSet = Object.keys(layout.assets.digitSets)[0] ?? 'default'
   const digitSet = layout.assets.digitSets[firstDigitSet]
-  const firstAsset = digitSet?.digits[0] ?? '/project/preview.png'
+  const firstAsset = digitSet?.digits[0] ?? `${projectBase}preview.png`
   const id = `${type}-${Date.now().toString(36)}`
   const common = { id, x: Math.round(x), y: Math.round(y), z, opacity: 1 }
   switch (type) {
@@ -72,13 +87,16 @@ function downloadJson(fileName: string, value: unknown): void {
 }
 
 function downloadText(fileName: string, value: string, type: string): void {
-  const blob = new Blob([value], { type })
+  downloadBlob(fileName, new Blob([value], { type }))
+}
+
+function downloadBlob(fileName: string, blob: Blob): void {
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url
   anchor.download = fileName
   anchor.click()
-  URL.revokeObjectURL(url)
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
 }
 
 function App() {
@@ -97,6 +115,13 @@ function App() {
   const [showGrid, setShowGrid] = useState(true)
   const [zoom, setZoom] = useState(1)
   const [liveTime, setLiveTime] = useState(false)
+  const [templates, setTemplates] = useState<TemplateEntry[]>([])
+  const [busy, setBusy] = useState(false)
+  const [notice, setNotice] = useState<string>()
+
+  useEffect(() => {
+    loadTemplates().then(setTemplates).catch(() => setTemplates([]))
+  }, [])
 
   useEffect(() => {
     loadProject()
@@ -187,6 +212,53 @@ function App() {
     setSourceError(undefined)
   }
 
+  const runTask = async (label: string, task: () => Promise<void>) => {
+    setBusy(true)
+    setNotice(`${label}…`)
+    try {
+      await task()
+      setNotice(undefined)
+    } catch (error) {
+      setNotice(`${label} failed: ${error instanceof Error ? error.message : String(error)}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const downloadFace = () => runTask('Packing .face', async () => {
+    if (!payload || !layout) return
+    downloadBlob(`${payload.manifest.output}.face`, await exportFace(payload.manifest, layout))
+  })
+
+  const addWallpaper = (file: File, dim: number) => runTask('Preparing wallpaper', async () => {
+    if (!layout) return
+    const asset = await makeWallpaper(file, dim)
+    const next = cloneLayout(layout)
+    const minimumZ = next.normal.widgets.reduce((minimum, widget) => Math.min(minimum, widget.z), 1)
+    next.normal.widgets = [
+      { id: `wallpaper-${Date.now().toString(36)}`, label: 'Photo wallpaper', type: 'image', asset, x: 0, y: 0, z: minimumZ - 1, allowOverlap: true },
+      ...next.normal.widgets.filter((widget) => !widget.id.startsWith('wallpaper')),
+    ]
+    updateLayout(next)
+    setMode('normal')
+  })
+
+  const addFontClock = (options: { font: File, size: number, weight: number, color: string }) => runTask('Rendering font', async () => {
+    if (!layout) return
+    const { set, height } = await makeDigitSet(options)
+    const next = cloneLayout(layout)
+    const name = `font-${Date.now().toString(36)}`
+    next.assets.digitSets[name] = set
+    const maximumZ = next.normal.widgets.reduce((maximum, widget) => Math.max(maximum, widget.z), 0)
+    const top = Math.max(0, Math.round(260 - height - 4))
+    next.normal.widgets.push(
+      { id: `${name}-hours`, label: 'Hours', type: 'number', source: 'hour', digitSet: name, digits: 2, align: 'center', leadingZero: true, x: 106, y: top, z: maximumZ + 1, allowOverlap: true },
+      { id: `${name}-minutes`, label: 'Minutes', type: 'number', source: 'minute', digitSet: name, digits: 2, align: 'center', leadingZero: true, x: 106, y: top + height + 8, z: maximumZ + 1, allowOverlap: true },
+    )
+    updateLayout(next)
+    setMode('normal')
+  })
+
   if (loadError) {
     return (
       <main className="empty-state">
@@ -215,10 +287,21 @@ function App() {
           <button className={activeMode === 'aod' ? 'active' : ''} disabled={!layout.aod?.enabled} onClick={() => setMode('aod')}>AOD</button>
         </div>
         <div className="toolbar-actions">
+          {templates.length > 0 && (
+            <select
+              className="template-select"
+              aria-label="Start from a template"
+              value={selectedTemplate ?? ''}
+              onChange={(event) => { window.location.search = event.target.value ? `?template=${event.target.value}` : '' }}
+            >
+              <option value="">Templates…</option>
+              {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
+            </select>
+          )}
           <button className="icon-button" onClick={() => setShowGrid((value) => !value)} aria-pressed={showGrid} title="Toggle grid">#</button>
           <button className="toolbar-button" onClick={reset} disabled={!dirty}>Reset</button>
           <button className="toolbar-button" onClick={() => downloadJson('layout.json', layout)}>Export JSON</button>
-          <button className="primary-button" onClick={() => { setSourceFormat('json'); setPanel('source') }}>Edit source</button>
+          <button className="primary-button" onClick={downloadFace} disabled={busy}>Download .face</button>
         </div>
       </header>
 
@@ -294,6 +377,7 @@ function App() {
         <nav className="panel-tabs">
           <button className={panel === 'inspect' ? 'active' : ''} onClick={() => setPanel('inspect')}>Inspect</button>
           <button className={panel === 'simulate' ? 'active' : ''} onClick={() => setPanel('simulate')}>Simulate</button>
+          <button className={panel === 'create' ? 'active' : ''} onClick={() => setPanel('create')}>Create</button>
           <button className={panel === 'source' ? 'active' : ''} onClick={() => setPanel('source')}>Source</button>
         </nav>
         <div className="panel-content">
@@ -317,6 +401,7 @@ function App() {
               onReset={() => { setSimulation(DEFAULT_SIMULATION); setLiveTime(false) }}
             />
           )}
+          {panel === 'create' && <CreatePanel busy={busy} onWallpaper={addWallpaper} onFontClock={addFontClock} />}
           {panel === 'source' && (
             <section className="source-panel">
               <div className="section-heading"><div><span className="eyebrow">Project source</span><h2>{sourceFormat === 'json' ? 'layout.json' : `${payload.manifest.output}.fprj`}</h2></div><div className="source-format-switch"><button className={sourceFormat === 'json' ? 'active' : ''} onClick={() => setSourceFormat('json')}>JSON</button><button className={sourceFormat === 'xml' ? 'active' : ''} onClick={() => setSourceFormat('xml')}>XML</button></div></div>
@@ -345,7 +430,7 @@ function App() {
         </div>
         <footer className="validation-strip">
           <span className="status-led" />
-          <div><strong>Preview schema loaded</strong><small>Run CLI validation before packaging</small></div>
+          <div><strong>{notice ?? 'Preview schema loaded'}</strong><small>Run CLI validation before packaging</small></div>
         </footer>
       </aside>
     </div>

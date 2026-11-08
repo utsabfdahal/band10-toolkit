@@ -1,0 +1,33 @@
+name: Face submission
+description: Propose a new face for the examples gallery.
+title: "[face] <face name>"
+labels: [face-submission]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Faces are added by pull request under `examples/<name>/` (manifest.json, layout.json, assets/, generator script if any, README.md with screenshots).
+        Use this issue to discuss the idea or share a studio export before opening the PR.
+  - type: input
+    id: name
+    attributes:
+      label: Face name
+    validations:
+      required: true
+  - type: textarea
+    id: preview
+    attributes:
+      label: Screenshots
+      description: Active and always-on previews (drag images here).
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: "`npm run band10 -- validate examples/<name>` reports no errors and no LEGIBILITY warnings"
+          required: true
+        - label: All artwork and fonts are my own or under a redistributable licence (MIT/OFL/CC0/CC-BY)
+          required: true
+        - label: I installed it on a real band (optional but appreciated)
